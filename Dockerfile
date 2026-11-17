@@ -1,28 +1,19 @@
-FROM node:22-alpine AS base
+FROM node:22-alpine AS build
 WORKDIR /app
-
-# Install dependencies
-FROM base AS deps
-COPY package*.json ./
-COPY . .
-# The app builds from git submodules; fail early with a clear message if missing.
-RUN for d in packages/Vibe-Workflow/packages/workflow-builder packages/Open-Poe-AI/packages/agents packages/Open-AI-Design-Agent/packages/design-agent; do \
-      [ -f "$d/package.json" ] || { echo "ERROR: $d is missing. Submodules are not initialized. Run: git submodule update --init --recursive (or clone with --recurse-submodules), then rebuild." >&2; exit 1; }; \
-    done
-RUN npm install
-
-# Build sub-packages
-FROM deps AS builder
-RUN npm run build:packages
+COPY free-studio/package.json free-studio/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY free-studio/vite.config.mjs free-studio/index.html ./
+COPY free-studio/src ./src
+COPY free-studio/public ./public
 RUN npm run build
 
-# Production runner
-FROM base AS runner
-ENV NODE_ENV=production
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-
-EXPOSE 3000
-CMD ["npm", "start"]
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3210 STUDIO_DATA_DIR=/data
+WORKDIR /app
+RUN mkdir /data && chown node:node /data
+COPY --chown=node:node free-studio/server ./server
+COPY --chown=node:node --from=build /app/dist ./dist
+USER node
+EXPOSE 3210
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD node -e "fetch('http://127.0.0.1:3210/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "server/index.mjs"]

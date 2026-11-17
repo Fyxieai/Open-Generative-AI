@@ -9,20 +9,22 @@
 **Tech stack:** Node22 built-ins, React, Vite, Node test runner, Docker and existing VPS reverse proxy.
 
 ## Task1: Server and provider adapters
-- [ ] Write failing Node tests for catalog restrictions, credential encryption, promotion expiration, auth, origin rejection, bounded request bodies, serialized/idempotent jobs, quota, safe output URLs and byte limits, provider image parsing and asynchronous video polling.
-- [ ] Implement `free-studio/server/{index,app,config,store,providers,media,jobs,auth}.mjs` and focused files as needed. Export `createApp(options)` for isolated HTTP tests and use mocked external transports only in test injection.
-- [ ] Verify `node --test free-studio/tests/*.test.mjs`, inspect failures and fix implementation.
-- [ ] Commit only server/test files after self-review; then independent spec review followed by code quality/security review.
+- [x] Write failing Node tests for catalog restrictions, credential encryption, promotion expiration, auth, origin rejection, bounded request bodies, serialized/idempotent jobs, quota, safe output URLs and byte limits, provider image parsing and asynchronous video polling.
+- [x] Implement `free-studio/server/{index,app,config,store,providers,media,jobs,auth}.mjs` and focused files as needed. Export `createApp(options)` for isolated HTTP tests and use mocked external transports only in test injection.
+- [x] Verify `node --test free-studio/tests/*.test.mjs`, inspect failures and fix implementation.
+- [x] Commit only server/test files after self-review; then independent spec review followed by code quality/security review.
 
 ## Task2: Client and packaging
-- [ ] Create `free-studio/package.json`, Vite config, HTML entry, `src/{App.jsx,main.jsx,style.css}` and local icons with no paid services or remote trackers.
-- [ ] Implement API-contract client with responsive editor, image/video controls, secure provider setup, explicit free-access wording, jobs gallery, downloads, cancellation, limits and accessible feedback.
-- [ ] Install only this standalone package's dependencies. Run production build, dependency audit, and browser inspection.
-- [ ] Update root README/defaultDockerfile/compose to use the standalone runtime, retain upstream attribution and document legacy application status.
+- [x] Create `free-studio/package.json`, Vite config, HTML entry, `src/{App.jsx,main.jsx,style.css}` and local icons with no paid services or remote trackers.
+- [x] Implement API-contract client with responsive editor, image/video controls, secure provider setup, explicit free-access wording, jobs gallery, downloads, cancellation, limits and accessible feedback.
+- [x] Install only this standalone package's dependencies. Run production build, dependency audit, and browser inspection.
+- [x] Update root README/defaultDockerfile/compose to use the standalone runtime, retain upstream attribution and document legacy application status.
 
 ## Task3: Accounts, integration and delivery
-- [ ] Inspect authorized Hostinger existing services and available account access; use AgentMail only if configured and user-authorized.
-- [ ] Perform independent spec then security/code review and fix findings.
+- [x] Inspect authorized Hostinger existing services and available account access; use AgentMail only if configured and user-authorized.
+- [x] Perform independent spec then security/code review and fix findings.
 - [ ] Start and inspect the local app. Test real provider generations only with verified free access and secure credentials.
 - [ ] Deploy separately from n8n when remote access is available; verify authentication, HTTPS, media and persistence.
 - [ ] Push branch to user fork; document exact checks, account/deployment blockers, and usage URL. Never imply mocked generation is live success.
+
+Final scope includes user-requested Astryx redesign as PARALLAX and browser-only code assets. See ../verification-2026-11-17.md for live verification and external blockers.

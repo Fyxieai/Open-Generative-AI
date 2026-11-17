@@ -1,0 +1,19 @@
+{
+  "name": "parallax",
+  "like": "gothic",
+  "mode": "both",
+  "settings": [
+    {
+      "thing": "accent",
+      "value": "#8b5cf6",
+      "source": "dial"
+    },
+    {
+      "thing": "font",
+      "value": "system",
+      "source": "dial"
+    }
+  ],
+  "lifted": [],
+  "palette": "fcee59be499ba2faa633d4c84022715d8f303fc9669751840b3a0426fe97dc3d"
+}

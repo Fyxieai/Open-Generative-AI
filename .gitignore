@@ -36,3 +36,11 @@ out/
 .env
 .env.*
 !.env.example
+
+# Private studio credentials, media and local generated previews
+/free-studio/data/
+/free-studio/themes/**/preview*.png
+/free-studio/themes/**/sheet*.png
+/free-studio/themes/**/preview*.html
+/free-studio/themes/**/sheet*.html
+/free-studio/.astryx/

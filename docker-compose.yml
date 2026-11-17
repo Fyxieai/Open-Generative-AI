@@ -1,9 +1,31 @@
 services:
-  open-generative-ai:
+  parallax:
     build: .
-    container_name: open-generative-ai
-    ports:
-      - "3001:3000"
-    environment:
-      - NODE_ENV=production
     restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:3210:3210"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3210
+      STUDIO_DATA_DIR: /data
+      STUDIO_ORIGIN: ${STUDIO_ORIGIN:?Set the studio HTTPS origin}
+      STUDIO_PASSWORD: ${STUDIO_PASSWORD:?Set a strong private studio password}
+    volumes:
+      - studio-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+volumes:
+  studio-data:
