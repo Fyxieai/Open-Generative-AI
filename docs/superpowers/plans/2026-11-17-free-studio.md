@@ -23,8 +23,8 @@
 ## Task3: Accounts, integration and delivery
 - [x] Inspect authorized Hostinger existing services and available account access; use AgentMail only if configured and user-authorized.
 - [x] Perform independent spec then security/code review and fix findings.
-- [ ] Start and inspect the local app. Test real provider generations only with verified free access and secure credentials.
+- [x] Start and inspect the local app. NovAI image and video tested live through reviewed free models and secure credentials; Agnes not activated.
 - [ ] Deploy separately from n8n when remote access is available; verify authentication, HTTPS, media and persistence.
-- [ ] Push branch to user fork; document exact checks, account/deployment blockers, and usage URL. Never imply mocked generation is live success.
+- [x] Push branch to user fork; document exact checks, account/deployment blockers, and usage URL. Never imply mocked generation is live success.
 
 Final scope includes user-requested Astryx redesign as PARALLAX and browser-only code assets. See ../verification-2026-11-17.md for live verification and external blockers.

@@ -16,7 +16,9 @@
 - NovAI registration requires manual signup under its anti-automation rules, new-password entry and terms acceptance. Safari signup was opened and a user handoff requested. User completed registration and supplied a key; it was connected through the local backend. No account was created automatically.
 - Agnes verification request did not deliver an email; signup remains incomplete.
 - Live NovAI image and video both succeeded. Image:1024×1024 JPEG with AI watermark. First video attempt was throttled; polling was made slower with bounded GET-only retry, covered by a regression test. Second video succeeded without a paid fallback: H.264,1792×1024,5.108seconds. Provider dashboard showed $0 spend after image generation; no top-up occurred.
-- Hostinger KVM2 dashboard and authenticated root console inspected. Existing n8n, Traefik, OpenShorts and command-center containers verified with docker ps. No VPS application changes, DNS changes or deployment yet.
-- Docker CLI is installed locally but daemon is unavailable; Docker image build could not run. Container files are prepared, not runtime-verified.
+- Hostinger KVM2 dashboard and authenticated root console inspected. Existing n8n, Traefik, OpenShorts and command-center containers verified with docker ps. Reviewed source commit97e938a was checked out at /opt/parallax-studio. Docker build commands could not be verified because native terminal input/rendering became unreliable. Existing services were left running; no DNS changes or public deployment occurred.
+- Docker CLI is installed locally but daemon is unavailable; Docker image build could not run. Compose configuration validation passed. Container image build/runtime remain unverified.
 
 The app is running locally at http://127.0.0.1:3210. This is a local preview, not a deployed public studio.
+
+Browser video decoder verification: readyState4,1792×1024,5.108108seconds, no media errors. Original preview viewport restored; studio tab retained as deliverable.
