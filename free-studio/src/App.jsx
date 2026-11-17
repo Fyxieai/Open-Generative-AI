@@ -3,6 +3,7 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Text, Heading } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { TextInput } from "@astryxdesign/core/TextInput";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { Selector } from "@astryxdesign/core/Selector";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
@@ -28,6 +29,11 @@ const PROVIDERS = {
     name: "NovAI",
     url: "https://aiapi-pro.com/free/index.html",
     note: "10 shared free-model calls a day, including up to 5 five-second videos. Resets at midnight UTC+8. Free outputs carry a watermark.",
+  },
+  cloudflare: {
+    name: "Cloudflare",
+    url: "https://dash.cloudflare.com/",
+    note: "FLUX.1 Schnell and Leonardo Lucid Origin share 10,000 free Neurons per UTC day. Use a Workers AI Free account: requests stop at its allowance. Paid accounts can incur charges.",
   },
   agnes: {
     name: "Agnes AI",
@@ -85,6 +91,8 @@ function Connections({ status, onClose, refresh, notify }) {
   const [id, setId] = useState("novai"),
     [key, setKey] = useState(""),
     [until, setUntil] = useState(""),
+    [accountId, setAccountId] = useState(""),
+    [freePlan, setFreePlan] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const p = PROVIDERS[id],
@@ -100,6 +108,9 @@ function Connections({ status, onClose, refresh, notify }) {
         method: "POST",
         body: JSON.stringify({
           apiKey: key.trim(),
+          ...(id === "cloudflare"
+            ? { accountId: accountId.trim(), freePlanConfirmed: freePlan }
+            : {}),
           ...(id === "agnes"
             ? { freeUntil: new Date(until).toISOString() }
             : {}),
@@ -142,6 +153,10 @@ function Connections({ status, onClose, refresh, notify }) {
               setId(k);
               setKey("");
               setUntil("");
+              setAccountId(
+                status?.providers?.find((p) => p.id === k)?.accountId || "",
+              );
+              setFreePlan(false);
               setError("");
             }}
           />
@@ -150,6 +165,9 @@ function Connections({ status, onClose, refresh, notify }) {
       <Text>{p.note}</Text>
       {id === "novai" && status?.quotas?.novai && (
         <Quota quota={status.quotas.novai} />
+      )}
+      {id === "cloudflare" && status?.quotas?.cloudflare && (
+        <CloudflareQuota quota={status.quotas.cloudflare} />
       )}
       <Button
         label={"Open " + p.name + " ↗"}
@@ -160,6 +178,31 @@ function Connections({ status, onClose, refresh, notify }) {
       />
       {id !== "freellmapi" && (
         <VStack as="form" onSubmit={save} gap={4}>
+          {id === "cloudflare" && (
+            <VStack gap={3}>
+              <TextInput
+                label="Cloudflare account ID"
+                value={accountId}
+                onChange={setAccountId}
+                autoComplete="off"
+                hasSpellCheck={false}
+                description="The 32-character account ID from your Cloudflare dashboard."
+              />
+              <CheckboxInput
+                label="This account uses Workers AI Free"
+                value={freePlan}
+                onChange={setFreePlan}
+                description="Check Billing → Subscriptions first. The studio estimates usage; Cloudflare's Free plan provides the billing limit. Other account activity shares the same allowance."
+              />
+              <Button
+                label="How to create a Workers AI token ↗"
+                href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/"
+                target="_blank"
+                rel="noreferrer"
+                variant="ghost"
+              />
+            </VStack>
+          )}
           <TextInput
             label={saved?.configured ? "Replace API key" : "API key"}
             type="password"
@@ -208,7 +251,12 @@ function Connections({ status, onClose, refresh, notify }) {
               label="Save connection"
               variant="primary"
               isLoading={busy}
-              isDisabled={!key.trim() || (id === "agnes" && !until)}
+              isDisabled={
+                !key.trim() ||
+                (id === "agnes" && !until) ||
+                (id === "cloudflare" &&
+                  (!/^[a-f0-9]{32}$/i.test(accountId.trim()) || !freePlan))
+              }
             />
             {saved?.configured && (
               <Button label="Disconnect" onClick={remove} isDisabled={busy} />
@@ -217,6 +265,32 @@ function Connections({ status, onClose, refresh, notify }) {
         </VStack>
       )}
     </Modal>
+  );
+}
+function CloudflareQuota({ quota: q }) {
+  return (
+    <VStack gap={2} style={panel} padding={3}>
+      <HStack hAlign="between" wrap="wrap" gap={2}>
+        <Text type="label">Cloudflare shared allowance</Text>
+        <Text type="code">
+          {q.totalRemaining.toLocaleString()} / {q.totalLimit.toLocaleString()}{" "}
+          Neurons
+        </Text>
+      </HStack>
+      <Text type="supporting" color="secondary">
+        Estimated budget across both image models. FLUX reserves 60 per image;
+        Lucid Origin reserves 2,800. Resets{" "}
+        {new Date(q.resetAt).toLocaleTimeString(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        })}{" "}
+        your time.
+      </Text>
+      <Text type="supporting" color="secondary">
+        Failed submissions keep their reservation. Other account usage is not
+        included. Cloudflare's Free plan stops requests at the account limit.
+      </Text>
+    </VStack>
   );
 }
 function Quota({ quota: q }) {
@@ -499,6 +573,12 @@ export default function App() {
     setError("");
     if (!model?.available) {
       setConnections(true);
+      return;
+    }
+    if (prompt.trim().length > (model.promptMaxLength || 4000)) {
+      setError(
+        `${model.label} accepts up to ${model.promptMaxLength || 4000} characters. Shorten the prompt before generating.`,
+      );
       return;
     }
     const payload = {
@@ -872,8 +952,8 @@ export default function App() {
                         : "A chrome sculpture floating above a violet desert, cinematic light, analog film grain…"
                     }
                     rows={2}
-                    htmlMaxLength={4000}
-                    maxLength={4000}
+                    htmlMaxLength={model?.promptMaxLength || 4000}
+                    maxLength={model?.promptMaxLength || 4000}
                   />
                   <HStack gap={3} wrap="wrap" vAlign="end" hAlign="between">
                     <HStack gap={3} wrap="wrap" style={{ flex: 1 }}>
@@ -940,7 +1020,12 @@ export default function App() {
                     </Text>
                   </HStack>
                 </VStack>
-                {status?.quotas?.novai && <Quota quota={status.quotas.novai} />}
+                {model?.provider === "cloudflare" &&
+                status?.quotas?.cloudflare ? (
+                  <CloudflareQuota quota={status.quotas.cloudflare} />
+                ) : (
+                  status?.quotas?.novai && <Quota quota={status.quotas.novai} />
+                )}
                 <HStack gap={3} wrap="wrap" hAlign="between" vAlign="center">
                   <Heading level={2}>Your next dimension</Heading>
                   <Text type="supporting" color="secondary">

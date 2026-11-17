@@ -1,0 +1,19 @@
+# Uses the existing Hostinger Traefik without changing its deployment.
+services:
+  parallax:
+    image: parallax-studio:${STUDIO_TAG:-latest}
+    networks:
+      - default
+      - hostinger-proxy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: n8n_default
+      traefik.http.routers.parallax.rule: Host(`${STUDIO_HOST:?Set the studio hostname}`)
+      traefik.http.routers.parallax.entrypoints: websecure
+      traefik.http.routers.parallax.tls: "true"
+      traefik.http.routers.parallax.tls.certresolver: mytlschallenge
+      traefik.http.services.parallax.loadbalancer.server.port: "3210"
+networks:
+  hostinger-proxy:
+    external: true
+    name: n8n_default

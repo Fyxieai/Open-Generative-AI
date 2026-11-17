@@ -107,7 +107,7 @@ test("local session, fixed catalog, unknown models and gateway cannot invoke tra
   });
   const catalog = (await req("/api/status")).value;
   assert.equal(catalog.freeOnly, true);
-  assert.equal(catalog.models.length, 6);
+  assert.equal(catalog.models.length, 8);
   assert.equal(
     catalog.models.find((x) => x.id === "freellmapi-image").available,
     false,

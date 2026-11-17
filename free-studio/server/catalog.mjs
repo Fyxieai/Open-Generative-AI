@@ -1,9 +1,36 @@
 export const PROVIDERS = [
   { id: "novai", label: "NovAI" },
   { id: "agnes", label: "Agnes (temporary promotion)" },
+  { id: "cloudflare", label: "Cloudflare Workers AI" },
   { id: "freellmapi", label: "FreeLLMAPI (gateway disabled)" },
 ];
 const models = [
+  {
+    id: "cloudflare-flux",
+    label: "FLUX.1 Schnell",
+    provider: "cloudflare",
+    kind: "image",
+    freeType: "recurring",
+    description:
+      "Workers Free plan required. Reserves an app estimate of 60 neurons at 4 steps; shares 10,000 neurons per UTC day. Other account use reduces availability. Paid plans can bill beyond the free allocation.",
+    aspectRatios: ["1:1"],
+    durations: [],
+    promptMaxLength: 2048,
+    estimatedNeurons: 60,
+  },
+  {
+    id: "cloudflare-lucid",
+    label: "Lucid Origin",
+    provider: "cloudflare",
+    kind: "image",
+    freeType: "recurring",
+    description:
+      "Workers Free plan required. Reserves an app estimate of 2,800 neurons at 20 steps; shares 10,000 neurons per UTC day. This estimate cannot guarantee billing; check account usage and plan.",
+    aspectRatios: ["1:1", "16:9", "9:16"],
+    durations: [],
+    promptMaxLength: 4000,
+    estimatedNeurons: 2800,
+  },
   {
     id: "novai-image",
     label: "CogView 3 Flash",
@@ -81,6 +108,12 @@ export function catalog(state, env, now) {
     else if (!state.providers[model.provider]?.encryptedKey)
       reason = "Add a provider API key in settings.";
     else if (
+      model.provider === "cloudflare" &&
+      !validCloudflareConfig(state.providers.cloudflare)
+    )
+      reason =
+        "Add a valid Cloudflare account ID and explicitly confirm the Workers Free plan.";
+    else if (
       model.provider === "agnes" &&
       !(Date.parse(state.providers.agnes.freeUntil) > now)
     )
@@ -97,7 +130,25 @@ export function providerStatus(state, env) {
         ? Boolean(env.FREELLMAPI_BASE_URL)
         : Boolean(state.providers[provider.id]?.encryptedKey),
     freeUntil: state.providers[provider.id]?.freeUntil ?? null,
+    ...(provider.id === "cloudflare"
+      ? {
+          accountId: /^[a-f0-9]{32}$/i.test(
+            state.providers.cloudflare?.accountId ?? "",
+          )
+            ? state.providers.cloudflare.accountId
+            : null,
+          freePlanConfirmed:
+            state.providers.cloudflare?.freePlanConfirmed === true,
+        }
+      : {}),
   }));
+}
+export function validCloudflareConfig(config) {
+  return (
+    typeof config?.accountId === "string" &&
+    /^[a-f0-9]{32}$/i.test(config.accountId) &&
+    config.freePlanConfirmed === true
+  );
 }
 export function validateJob(body, state, env, now) {
   const model = catalog(state, env, now).find(
@@ -110,14 +161,18 @@ export function validateJob(body, state, env, now) {
     );
   if (!model.available)
     throw Object.assign(new Error(model.unavailableReason), { status: 409 });
+  const promptMaxLength = model.promptMaxLength ?? 4000;
   if (
     typeof body.prompt !== "string" ||
     !body.prompt.trim() ||
-    body.prompt.trim().length > 4000
+    body.prompt.trim().length > promptMaxLength
   )
-    throw Object.assign(new Error("Prompt must contain 1–4000 characters."), {
-      status: 400,
-    });
+    throw Object.assign(
+      new Error(`Prompt must contain 1–${promptMaxLength} characters.`),
+      {
+        status: 400,
+      },
+    );
   if (!model.aspectRatios.includes(body.aspectRatio))
     throw Object.assign(new Error("Unsupported aspect ratio for this model."), {
       status: 400,

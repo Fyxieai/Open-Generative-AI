@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { providerJSON, decodeImage, safeDownload } from "./network.mjs";
+import { validCloudflareConfig } from "./catalog.mjs";
 
 const BASE = {
   novai: "https://aiapi-pro.com/v1",
@@ -25,6 +26,49 @@ export async function generate(job, key, options) {
   const download = (url) => safeDownload(url, job.provider, job.kind, options);
   let result;
   if (job.kind === "image") {
+    if (job.provider === "cloudflare") {
+      if (!validCloudflareConfig(options.providerConfig))
+        throw new Error(
+          "Provider request requires valid Cloudflare account and Free plan confirmation",
+        );
+      let model, body;
+      if (
+        job.modelId === "cloudflare-flux" &&
+        job.aspectRatio === "1:1" &&
+        typeof job.prompt === "string" &&
+        job.prompt.length <= 2048
+      ) {
+        model = "@cf/black-forest-labs/flux-1-schnell";
+        body = { prompt: job.prompt, steps: 4 };
+      } else if (job.modelId === "cloudflare-lucid") {
+        const dimensions = {
+          "1:1": [1024, 1024],
+          "16:9": [1024, 576],
+          "9:16": [576, 1024],
+        }[job.aspectRatio];
+        if (!dimensions)
+          throw new Error("Provider request has unsupported aspect ratio");
+        model = "@cf/leonardo/lucid-origin";
+        body = {
+          prompt: job.prompt,
+          width: dimensions[0],
+          height: dimensions[1],
+          num_steps: 20,
+        };
+      } else
+        throw new Error("Provider request has unreviewed model or parameters");
+      result = await call(
+        `https://api.cloudflare.com/client/v4/accounts/${options.providerConfig.accountId}/ai/run/${model}`,
+        body,
+      );
+      if (result?.success === false)
+        throw new Error(
+          "Provider request failed (Cloudflare reported unsuccessful generation)",
+        );
+      if (!result?.result?.image)
+        throw new Error("Provider returned no image media");
+      return decodeImage(result.result.image);
+    }
     if (job.provider === "novai")
       result = await call(`${BASE.novai}/images/generations`, {
         model: "cogview-3-flash",

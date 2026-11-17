@@ -4,6 +4,8 @@ import { validateJob } from "./catalog.mjs";
 
 const ACTIVE = new Set(["queued", "running"]);
 const dayKey = (now) => new Date(now + 8 * 3600000).toISOString().slice(0, 10);
+const utcDayKey = (now) => new Date(now).toISOString().slice(0, 10);
+const CLOUDFLARE_COSTS = { "cloudflare-flux": 60, "cloudflare-lucid": 2800 };
 function publicJob(job) {
   const { reservationDay, ...safe } = job;
   return safe;
@@ -31,8 +33,21 @@ export class JobQueue {
   }
   quotas() {
     const day = dayKey(this.now());
+    const utcDay = utcDayKey(this.now());
+    const neurons = this.store.state.quota.cloudflare?.[utcDay]?.total ?? 0;
     const used = this.store.state.quota[day] ?? { total: 0, video: 0 };
     return {
+      cloudflare: {
+        totalLimit: 10000,
+        totalUsed: neurons,
+        totalRemaining: Math.max(0, 10000 - neurons),
+        resetAt: new Date(
+          Date.parse(utcDay + "T00:00:00.000Z") + 86400000,
+        ).toISOString(),
+        timezone: "UTC",
+        scope: "app-estimate",
+        units: "neurons",
+      },
       novai: {
         totalLimit: 10,
         videoLimit: 5,
@@ -52,6 +67,22 @@ export class JobQueue {
     return (this.store.state.quota[day] ??= { total: 0, video: 0 });
   }
   reserve(job) {
+    if (job.provider === "cloudflare") {
+      const day = utcDayKey(this.now());
+      const cost = CLOUDFLARE_COSTS[job.modelId];
+      const history = (this.store.state.quota.cloudflare ??= {});
+      const quota = (history[day] ??= { total: 0 });
+      if (!cost || quota.total + cost > 10000)
+        throw Object.assign(
+          new Error(
+            "App Cloudflare daily neuron estimate limit reached. Resets at 00:00 UTC; other account use may reduce actual availability.",
+          ),
+          { status: 429 },
+        );
+      quota.total += cost;
+      job.reservationDay = day;
+      return;
+    }
     const day = dayKey(this.now());
     const quota = this.quotaFor(day);
     if (quota.total >= 10 || (job.kind === "video" && quota.video >= 5))
@@ -114,7 +145,7 @@ export class JobQueue {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
-    if (job.provider === "novai") this.reserve(job);
+    if (["novai", "cloudflare"].includes(job.provider)) this.reserve(job);
     state.jobs.push(job);
     if (idempotency) state.idempotency[idempotency] = job.id;
     await this.store.save();
@@ -149,11 +180,24 @@ export class JobQueue {
       // A queued reservation from yesterday must also count against today's cap.
       if (job.provider === "novai" && job.reservationDay !== dayKey(this.now()))
         this.reserve(job);
+      if (
+        job.provider === "cloudflare" &&
+        job.reservationDay !== utcDayKey(this.now())
+      )
+        this.reserve(job);
       // Recheck promotions and revoked keys at execution time.
       validateJob(job, this.store.state, this.options.env, this.now());
       await this.store.save();
       const media = await generate(job, this.store.keyFor(job.provider), {
         ...this.options,
+        providerConfig:
+          job.provider === "cloudflare"
+            ? {
+                accountId: this.store.state.providers.cloudflare?.accountId,
+                freePlanConfirmed:
+                  this.store.state.providers.cloudflare?.freePlanConfirmed,
+              }
+            : undefined,
         signal: controller.signal,
       });
       if (controller.signal.aborted || job.status === "cancelled") return;
@@ -171,7 +215,7 @@ export class JobQueue {
         // Only errors authored in this application may reach a browser. Provider
         // bodies and arbitrary transport exceptions can contain credentials.
         const allowed =
-          /^(Provider returned (invalid|no)|Provider (request|video) |Output |Media exceeds |Image exceeds |App NovAI |Free promotion |Add a provider)/;
+          /^(Provider returned (invalid|no)|Provider (request|video) |Output |Media exceeds |Image exceeds |App (NovAI|Cloudflare) |Free promotion |Add a provider)/;
         job.error = controller.signal.aborted
           ? "Generation deadline exceeded or server stopped. No automatic retry was made."
           : allowed.test(error.message)

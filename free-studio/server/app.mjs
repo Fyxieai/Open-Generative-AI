@@ -215,6 +215,19 @@ export function createApp(options = {}) {
           )
             failure("API key must contain 1–4096 characters");
           let freeUntil;
+          if (id === "cloudflare") {
+            if (
+              typeof body.accountId !== "string" ||
+              !/^[a-f0-9]{32}$/i.test(body.accountId)
+            )
+              failure(
+                "Cloudflare account ID must contain exactly 32 hexadecimal characters.",
+              );
+            if (body.freePlanConfirmed !== true)
+              failure(
+                "Explicitly confirm the Workers Free plan. Paid plans can bill beyond the free allocation; the app quota is only an estimate.",
+              );
+          }
           if (id === "agnes") {
             const timestamp = Date.parse(body.freeUntil);
             if (
@@ -230,6 +243,12 @@ export function createApp(options = {}) {
           store.state.providers[id] = {
             encryptedKey: store.encrypt(body.apiKey.trim()),
             ...(freeUntil ? { freeUntil } : {}),
+            ...(id === "cloudflare"
+              ? {
+                  accountId: body.accountId.toLowerCase(),
+                  freePlanConfirmed: true,
+                }
+              : {}),
           };
         }
         await store.save();
